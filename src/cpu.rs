@@ -1,17 +1,4 @@
-#[derive(Debug)]
-#[allow(non_camel_case_types)]
-pub enum AddressingMode {
-   Immediate,
-   ZeroPage,
-   ZeroPage_X,
-   ZeroPage_Y,
-   Absolute,
-   Absolute_X,
-   Absolute_Y,
-   Indirect_X,
-   Indirect_Y,
-   NoneAddressing,
-}
+use nes_emulator::opcodes::AddressingMode;
 
 pub struct CPU {
     pub register_a: u8,
@@ -162,35 +149,48 @@ impl CPU {
         self.update_zero_and_negative_flags(self.register_x);
     }
 
+    fn sta(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        self.mem_write(addr, self.register_a);
+    }
+
     pub fn run(&mut self) {
 
         loop {
             let opscode = self.mem_read(self.program_counter);
             self.program_counter += 1;
 
-        match opscode {
+            match opscode {
+                /* STA */
+                0x85 => {
+                    self.sta(&AddressingMode::ZeroPage);
+                    self.program_counter += 1;
+                }
+                0x95 => {
+                    self.sta(&AddressingMode::ZeroPage_X);
+                    self.program_counter += 1;
+                }
+                0xA9 => {
+                    self.lda(&AddressingMode::Immediate);
+                    self.program_counter += 1;
+                }
+                0xA5 => {
+                    self.lda(&AddressingMode::ZeroPage);
+                    self.program_counter += 1;
+                }
+                0xAD => {
+                    self.lda(&AddressingMode::Absolute);
+                    self.program_counter += 2; 
+                },
 
-            0xA9 => {
-                self.lda(&AddressingMode::Immediate);
-                self.program_counter += 1;
+                0xAA => self.tax(),
+
+                0xe8 => self.inx(),
+
+                0x00 => return,
+                
+                _ => todo!(),
             }
-            0xA5 => {
-                self.lda(&AddressingMode::ZeroPage);
-                self.program_counter += 1;
-            }
-            0xAD => {
-                self.lda(&AddressingMode::Absolute);
-                self.program_counter += 2; 
-            },
-
-            0xAA => self.tax(),
-
-            0xe8 => self.inx(),
-
-            0x00 => return,
-            
-            _ => todo!(),
-        }
         }
     }
 }
