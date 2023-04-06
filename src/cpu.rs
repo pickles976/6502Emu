@@ -89,6 +89,14 @@ impl CPU {
         self.status.remove(CpuFlags::CARRY)
     }
 
+    fn set_overflow_flag(&mut self) {
+        self.status.insert(CpuFlags::OVERFLOW)
+    }
+
+    fn clear_overflow_flag(&mut self) {
+        self.status.remove(CpuFlags::OVERFLOW)
+    }
+
     fn get_operand_address(&mut self, mode: &AddressingMode) -> u16 {
 
         match mode {
@@ -262,6 +270,34 @@ impl CPU {
         self.set_register_a(data << 1);
     }
 
+    fn bit(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(&mode);
+        let data = self.mem_read(addr);
+        let data = data & self.register_a;
+        self.update_zero_and_negative_flags(data);
+        
+        if data & 0b0100_0000 != 0 {
+            self.set_overflow_flag();
+        } else {
+            self.clear_overflow_flag();
+        }
+    }
+
+
+    // Branches are relative.
+    // https://wiki.cdot.senecacollege.ca/wiki/6502_Jumps,_Branches,_and_Procedures
+    fn branch(&mut self, condition: bool) {
+        if condition {
+            let jump: i8 = self.mem_read(self.program_counter) as i8; // address
+            let jump_addr = self
+                .program_counter
+                .wrapping_add(1)
+                .wrapping_add(jump as u16);
+
+            self.program_counter = jump_addr;
+        }
+    }
+
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
@@ -321,6 +357,35 @@ impl CPU {
                 }
                 0x06 | 0x16 | 0x0e | 0x1e => {
                     self.asl(&opcode.mode);
+                }
+                /* BIT */
+                0x24 | 0x2c => {
+                    self.bit(&opcode.mode);
+                }
+                /* BRANCHING */
+                0x10 => { // BPL
+                    self.branch(!self.status.contains(CpuFlags::NEGATIV));
+                }
+                0x30 => { // BMI
+                    self.branch(self.status.contains(CpuFlags::NEGATIV));
+                }
+                0x50 => { // BVC
+                    self.branch(!self.status.contains(CpuFlags::OVERFLOW));
+                }
+                0x70 => { // BVS
+                    self.branch(self.status.contains(CpuFlags::OVERFLOW));
+                }
+                0x90 => { // BCC
+                    self.branch(!self.status.contains(CpuFlags::CARRY));
+                }
+                0xb0 => { // BCS
+                    self.branch(self.status.contains(CpuFlags::CARRY));
+                }
+                0xd0 => { // BNE
+                    self.branch(!self.status.contains(CpuFlags::ZERO));
+                }
+                0xf0 => { // BEQ
+                    self.branch(self.status.contains(CpuFlags::ZERO));
                 }
                 0xAA => self.tax(),
                 0xe8 => self.inx(),
@@ -509,6 +574,19 @@ mod test {
         cpu.load_and_run(vec![0x06, 0x10]); // 0b0100 => 0b1000
 
         assert_eq!(cpu.register_a, 0x08);
+    }
+
+    /* BIT */
+    #[test]
+    fn test_bit() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0xc1);
+        cpu.load_and_run(vec![0xa9, 0xc1, 0x24, 0x10]); // 0b0100 => 0b1000
+
+        assert_eq!(cpu.register_a, 0xc1);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b0100_0000 == 0b0100_0000); // overflow
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b1000_0000); // negative
     }
 
 
