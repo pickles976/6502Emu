@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub enum AddressingMode {
@@ -14,21 +16,21 @@ pub enum AddressingMode {
 }
 
 pub struct OpCode {
-    pub opcode: u8,
-    pub name: String,
-    pub bytes: u8, 
+    pub code: u8,
+    pub mnemonic: &'static str,
+    pub len: u8, 
     pub cycles: u8,
-    pub addressingMode: AddressingMode 
+    pub mode: AddressingMode 
 }
 
 impl OpCode {
-    pub fn new(opcode: u8, name: &str, bytes: u8, cycles: u8, addressingMode: AddressingMode) -> OpCode {
+    pub fn new(code: u8, mnemonic: &'static str, len: u8, cycles: u8, mode: AddressingMode) -> OpCode {
         OpCode {
-            opcode: opcode,
-            name: name.to_string(),
-            bytes: bytes,
+            code: code,
+            mnemonic: mnemonic, 
+            len: len,
             cycles: cycles, 
-            addressingMode: addressingMode
+            mode: mode
         }
     }
 }
@@ -61,4 +63,12 @@ lazy_static! {
         OpCode::new(0x91, "STA", 2, 6, AddressingMode::Indirect_Y),
 
     ];
+
+    pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {
+        let mut map = HashMap::new();
+        for cpuop in &*CPU_OPS_CODES {
+            map.insert(cpuop.code, cpuop);
+        }
+        map
+    };
 }
