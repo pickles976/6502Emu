@@ -75,7 +75,7 @@ impl CPU {
             register_a: 0,
             register_x: 0,
             register_y: 0,
-            status: CpuFlags::from_bits_truncate(0b00000000),
+            status: CpuFlags::from_bits_truncate(0b100100),
             program_counter: 0,
             memory: [0; 0xFFFF]
         }
@@ -168,7 +168,7 @@ impl CPU {
         }
     }
 
-        /// note: ignoring decimal mode
+    /// note: ignoring decimal mode
     /// http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
     fn add_to_register_a(&mut self, data: u8) {
         let sum = self.register_a as u16
@@ -203,6 +203,12 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         let value = self.mem_read(addr);
         self.add_to_register_a(value);
+    }
+
+    fn sbc(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(&mode);
+        let data = self.mem_read(addr);
+        self.add_to_register_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8); // -A = !A + 1
     }
 
     fn inx(&mut self) {
@@ -259,6 +265,10 @@ impl CPU {
                 /* ADC */
                 0x69 | 0x65 | 0x75 | 0x6d | 0x7d | 0x79 | 0x61 | 0x71 => {
                     self.adc(&opcode.mode);
+                }
+                /* SBC */
+                0xe9 | 0xe5 | 0xf5 | 0xed | 0xfd | 0xf9 | 0xe1 | 0xf1 => {
+                    self.sbc(&opcode.mode);
                 }
                 0xAA => self.tax(),
                 0xe8 => self.inx(),
@@ -347,7 +357,8 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0x50]); // load 80 immediate
         assert_eq!(cpu.register_a, 0x50);
     }
-    
+
+    /* ADC */
     #[test]
     fn test_adc_immediate() {
         let mut cpu = CPU::new();
@@ -381,11 +392,42 @@ mod test {
     #[test]
     fn test_adc_from_memory() {
         let mut cpu = CPU::new();
-        println!("{:?}", cpu.status.bits());
         cpu.mem_write(0x10, 0x03);
         cpu.load_and_run(vec![0xa9, 0x33, 0x65, 0x10]); // load 0x33 into a, ADC 0x03 into a
 
         assert_eq!(cpu.register_a, 0x36);
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0000); // no carry
+        assert!(cpu.status.bits() & 0b0100_0000 == 0b0000_0000); // no overflow
+    }
+
+    /* SBC */
+    #[test]
+    fn test_sbc_immediate() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x05, 0xe9, 0x01]); // load 02 into a, SBC #$01 into a
+
+        assert_eq!(cpu.register_a, 0x03);
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b0100_0000 == 0b0000_0000); // no overflow
+    }
+
+    #[test]
+    fn test_sbc_immediate_overflow() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x05, 0xe9, 0x06]); // load 02 into a, SBC #$01 into a
+
+        assert_eq!(cpu.register_a, 0xfe);
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0000); // no carry
+        assert!(cpu.status.bits() & 0b0100_0000 == 0b0000_0000); // no overflow
+    }
+
+    #[test]
+    fn test_sbc_from_memory() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0x06);
+        cpu.load_and_run(vec![0xa9, 0x05, 0xe5, 0x10]); // load 0x05 into a, SBC 0x06 into a
+
+        assert_eq!(cpu.register_a, 0xfe);
         assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0000); // no carry
         assert!(cpu.status.bits() & 0b0100_0000 == 0b0000_0000); // no overflow
     }
