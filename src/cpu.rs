@@ -1,5 +1,5 @@
 use nes_emulator::opcodes::{OpCode, AddressingMode, OPCODES_MAP};
-use std::{collections::HashMap, ops::Add};
+use std::{collections::HashMap};
 use bitflags::bitflags;
 
 bitflags! {
@@ -587,6 +587,99 @@ mod test {
         assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
         assert!(cpu.status.bits() & 0b0100_0000 == 0b0100_0000); // overflow
         assert!(cpu.status.bits() & 0b1000_0000 == 0b1000_0000); // negative
+    }
+
+    /* BRANCHING */
+    #[test]
+    fn test_bpl() {
+        let mut cpu = CPU::new();
+        cpu.status = CpuFlags::from_bits_truncate(0b1111_1111);
+        cpu.status.remove(CpuFlags::NEGATIV);
+        cpu.load(vec![0x10, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_bmi() {
+        let mut cpu = CPU::new();
+        cpu.status.insert(CpuFlags::NEGATIV);
+        cpu.load(vec![0x30, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_bvc() {
+        let mut cpu = CPU::new();
+        cpu.status = CpuFlags::from_bits_truncate(0b1111_1111);
+        cpu.status.remove(CpuFlags::OVERFLOW);
+        cpu.load(vec![0x50, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_bvs() {
+        let mut cpu = CPU::new();
+        cpu.status.insert(CpuFlags::OVERFLOW);
+        cpu.load(vec![0x70, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_bcc() {
+        let mut cpu = CPU::new();
+        cpu.status = CpuFlags::from_bits_truncate(0b1111_1111);
+        cpu.status.remove(CpuFlags::CARRY);
+        cpu.load(vec![0x90, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_bcs() {
+        let mut cpu = CPU::new();
+        cpu.status.insert(CpuFlags::CARRY);
+        cpu.load(vec![0xb0, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_bne() {
+        let mut cpu = CPU::new();
+        cpu.status = CpuFlags::from_bits_truncate(0b1111_1111);
+        cpu.status.remove(CpuFlags::ZERO);
+        cpu.load(vec![0xd0, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
+    }
+
+    #[test]
+    fn test_beq() {
+        let mut cpu = CPU::new();
+        cpu.status.insert(CpuFlags::ZERO);
+        cpu.load(vec![0xf0, 0x10]);
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.program_counter, 0x8013);
     }
 
 
