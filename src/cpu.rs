@@ -1,5 +1,5 @@
 use nes_emulator::opcodes::{OpCode, AddressingMode, OPCODES_MAP};
-use std::{collections::HashMap};
+use std::{collections::HashMap, ops::Add};
 use bitflags::bitflags;
 
 bitflags! {
@@ -81,9 +81,18 @@ impl CPU {
         }
     }
 
+    fn set_carry_flag(&mut self) {
+        self.status.insert(CpuFlags::CARRY)
+    }
+
+    fn clear_carry_flag(&mut self) {
+        self.status.remove(CpuFlags::CARRY)
+    }
+
     fn get_operand_address(&mut self, mode: &AddressingMode) -> u16 {
 
         match mode {
+
             AddressingMode::Immediate => self.program_counter,
  
             AddressingMode::ZeroPage  => self.mem_read(self.program_counter) as u16,
@@ -128,6 +137,10 @@ impl CPU {
                 let deref_base = (hi as u16) << 8 | (lo as u16);
                 let deref = deref_base.wrapping_add(self.register_y as u16);
                 deref
+            }
+
+            AddressingMode::Accumulator => {
+                panic!("mode {:?} should be its own function", mode);
             }
           
             AddressingMode::NoneAddressing => {
@@ -182,9 +195,9 @@ impl CPU {
         let carry = sum > 0xff;
 
         if carry {
-            self.status.insert(CpuFlags::CARRY);
+            self.set_carry_flag();
         } else {
-            self.status.remove(CpuFlags::CARRY);
+            self.clear_carry_flag();
         }
 
         let result = sum as u8;
@@ -211,6 +224,13 @@ impl CPU {
         self.add_to_register_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8); // -A = !A + 1
     }
 
+    fn and(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(&mode);
+        let data = self.mem_read(addr);
+        self.set_register_a(self.register_a & data);
+        self.update_zero_and_negative_flags(self.register_a);
+    }
+
     fn inx(&mut self) {
         self.register_x = self.register_x.wrapping_add(1);
         self.update_zero_and_negative_flags(self.register_x);
@@ -219,6 +239,27 @@ impl CPU {
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
+    }
+
+    fn asl_accumulator(&mut self) {
+        let data = self.register_a;
+        if data >> 7 == 1 {
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+        self.set_register_a(data << 1);
+    }
+
+    fn asl(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(&mode);
+        let data = self.mem_read(addr);
+        if data >> 7 == 1 {
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+        self.set_register_a(data << 1);
     }
 
     pub fn reset(&mut self) {
@@ -269,6 +310,17 @@ impl CPU {
                 /* SBC */
                 0xe9 | 0xe5 | 0xf5 | 0xed | 0xfd | 0xf9 | 0xe1 | 0xf1 => {
                     self.sbc(&opcode.mode);
+                }
+                /* AND */
+                0x29 | 0x25 | 0x35 | 0x2d | 0x3d | 0x39 | 0x21 | 0x31 => {
+                    self.and(&opcode.mode);
+                }
+                /* ASL */
+                0x0a => {
+                    self.asl_accumulator();
+                }
+                0x06 | 0x16 | 0x0e | 0x1e => {
+                    self.asl(&opcode.mode);
                 }
                 0xAA => self.tax(),
                 0xe8 => self.inx(),
@@ -431,5 +483,33 @@ mod test {
         assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0000); // no carry
         assert!(cpu.status.bits() & 0b0100_0000 == 0b0000_0000); // no overflow
     }
+
+    /* AND */
+    #[test]
+    fn test_and() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x05, 0x29, 0x0c]); // 0b0101 & 0b1100 == 0b0100
+
+        assert_eq!(cpu.register_a, 0x04);
+    }
+
+    /* ASL */
+    #[test]
+    fn test_asl_accumulator() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x04, 0x0a]); // 0b0100 => 0b1000
+
+        assert_eq!(cpu.register_a, 0x08);
+    }
+
+    #[test]
+    fn test_asl() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0x04);
+        cpu.load_and_run(vec![0x06, 0x10]); // 0b0100 => 0b1000
+
+        assert_eq!(cpu.register_a, 0x08);
+    }
+
 
 }
