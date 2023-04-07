@@ -191,6 +191,16 @@ lazy_static! {
         OpCode::new(0xd8, "CLD", 1, 2, AddressingMode::ZeroPage_X), // UNUSED FOR NES
         OpCode::new(0xf8, "SED", 1, 2, AddressingMode::Absolute), // UNUSED FOR NES
 
+        /* STACK */
+        OpCode::new(0x9a, "TXS", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xba, "TSX", 1, 2, AddressingMode::NoneAddressing),
+
+        OpCode::new(0x48, "PHA", 1, 3, AddressingMode::NoneAddressing),
+        OpCode::new(0x68, "PLA", 1, 4, AddressingMode::NoneAddressing),
+
+        OpCode::new(0x08, "PHP", 1, 3, AddressingMode::NoneAddressing),
+        OpCode::new(0x28, "PLP", 1, 4, AddressingMode::NoneAddressing),
+
         /* JMP */
         OpCode::new(0x4c, "JMP", 1, 2, AddressingMode::Absolute),
         OpCode::new(0x6c, "JMP", 1, 2, AddressingMode::NoneAddressing),

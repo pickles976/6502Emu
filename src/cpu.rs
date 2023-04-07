@@ -27,12 +27,16 @@ bitflags! {
     }
 }
 
+const STACK: u16 = 0x0100;
+const STACK_RESET: u8 = 0xfd;
+
 pub struct CPU {
     pub register_a: u8,
     pub register_x: u8,
     pub register_y: u8,
     pub status: CpuFlags,
     pub program_counter: u16,
+    pub stack_ptr: u8,
     memory: [u8; 0xFFFF]
 }
 
@@ -77,6 +81,7 @@ impl CPU {
             register_y: 0,
             status: CpuFlags::from_bits_truncate(0b100100),
             program_counter: 0,
+            stack_ptr: 0,
             memory: [0; 0xFFFF]
         }
     }
@@ -355,6 +360,33 @@ impl CPU {
         }
     }
 
+    fn pla(&mut self) {
+        let val = self.stack_pop();
+        self.set_register_a(val);
+    }
+
+    fn txs(&mut self) {
+        self.stack_ptr = self.register_x;
+    }
+
+    fn tsx(&mut self) {
+        self.register_x = self.stack_ptr;
+        self.update_zero_and_negative_flags(self.register_x);
+    }
+
+    fn plp(&mut self) {
+        *self.status.0.bits_mut() = self.stack_pop();
+        self.status.remove(CpuFlags::BREAK);
+        self.status.insert(CpuFlags::BREAK2);
+    }
+
+    fn php(&mut self) {
+        //http://wiki.nesdev.com/w/index.php/CPU_status_flag_behavior
+        let mut flags = CpuFlags::from_bits_truncate(self.status.bits());
+        flags.insert(CpuFlags::BREAK);
+        flags.insert(CpuFlags::BREAK2);
+        self.stack_push(flags.bits());
+    }
 
     // Branches are relative.
     // https://wiki.cdot.senecacollege.ca/wiki/6502_Jumps,_Branches,_and_Procedures
@@ -404,12 +436,36 @@ impl CPU {
         self.program_counter = indirect_ref;
     }
 
+    fn stack_pop(&mut self) -> u8 {
+        self.stack_ptr = self.stack_ptr.wrapping_add(1);
+        self.mem_read((STACK as u16) + self.stack_ptr as u16)
+    }
+
+    fn stack_push(&mut self, data: u8) {
+        self.mem_write((STACK as u16) + self.stack_ptr as u16, data);
+        self.stack_ptr = self.stack_ptr.wrapping_sub(1);
+    }
+
+    fn stack_pop_u16(&mut self) -> u16{
+        let lo = self.stack_pop() as u16;
+        let hi = self.stack_pop() as u16;
+
+        hi << 8 | lo
+    }
+
+    fn stack_push_u16(&mut self, data: u8) {
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xff) as u8;
+        self.stack_push(hi);
+        self.stack_push(lo);
+    }
+
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
         self.status = CpuFlags::from_bits_truncate(0b100100);
- 
+        self.stack_ptr = STACK_RESET;
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
  
@@ -547,6 +603,15 @@ impl CPU {
                 0x58 => self.status.remove(CpuFlags::INTERRUPT_DISABLE), // CLI
                 0x78 => self.status.insert(CpuFlags::INTERRUPT_DISABLE), // SEI
                 0xb8 => self.status.remove(CpuFlags::OVERFLOW), // CLV
+
+                0x9a => self.txs(), // txs
+                0xba => self.tsx(), // tsx
+
+                0x48 => self.stack_push(self.register_a), // PHA
+                0x68 => self.pla(), // PLA
+
+                0x08 => self.php(), // php
+                0x28 => self.plp(), // plp
 
                 0x4c => self.jmp_absolute(), // JMP abs
                 0x6c => self.jmp_indirect(), // JMP indirect
