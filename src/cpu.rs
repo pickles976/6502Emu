@@ -1,5 +1,5 @@
 use nes_emulator::opcodes::{OpCode, AddressingMode, OPCODES_MAP};
-use std::{collections::HashMap};
+use std::{collections::HashMap, ops::Add};
 use bitflags::bitflags;
 
 bitflags! {
@@ -354,6 +354,19 @@ impl CPU {
         }
     }
 
+    fn compare(&mut self, mode: &AddressingMode, compare_with: u8) {
+        let addr = self.get_operand_address(&mode);
+        let data = self.mem_read(addr);
+
+        if data <= compare_with {
+            self.status.insert(CpuFlags::CARRY);
+        } else {
+            self.status.remove(CpuFlags::CARRY);
+        }
+
+        self.update_zero_and_negative_flags(compare_with.wrapping_sub(data));
+    }
+
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
@@ -470,6 +483,19 @@ impl CPU {
                 0x98 => self.tya(),
                 0x88 => self.dey(),
                 0xc8 => self.iny(),
+                /* COMPARISON */
+                /* CMP */
+                0xc9 | 0xc5 | 0xd5 | 0xcd | 0xdd | 0xd9 | 0xc1 | 0xd1 => {
+                    self.compare(&opcode.mode, self.register_a);
+                }
+                /* CPX */
+                0xe0 | 0xe4 | 0xec => {
+                    self.compare(&opcode.mode, self.register_x);
+                }
+                /* CPY */
+                0xc0 | 0xc4 | 0xcc => {
+                    self.compare(&opcode.mode, self.register_y);
+                }
                 0x00 => return,
                 _ => todo!(),
             }
@@ -483,6 +509,8 @@ impl CPU {
 
 #[cfg(test)]
 mod test {
+    use bitflags::BitFlags;
+
     use super::*;
 
     #[test]
@@ -813,6 +841,60 @@ mod test {
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xa0, 0x10, 0x84, 0x00]);
         assert_eq!(cpu.mem_read(0x00), 0x10);
+    }
+
+    #[test]
+    fn test_cmp_immediate_eq() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x10, 0xc9, 0x10]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0010); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_cmp_immediate_neq() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x10, 0xc9, 0x00]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_cpx_immediate_eq() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa2, 0x10, 0xe0, 0x10]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0010); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_cpx_immediate_neq() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa2, 0x10, 0xe0, 0x00]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_cpy_immediate_eq() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa0, 0x10, 0xc0, 0x10]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0010); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_cpy_immediate_neq() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa0, 0x10, 0xc0, 0x00]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
     }
 
 
