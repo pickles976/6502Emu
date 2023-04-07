@@ -180,6 +180,26 @@ lazy_static! {
         OpCode::new(0xce, "DEC", 3, 6, AddressingMode::Absolute),
         OpCode::new(0xde, "DEC", 3, 7, AddressingMode::Absolute_X),
 
+        /* FLAG OPS */
+        OpCode::new(0x18, "CLC", 1, 2, AddressingMode::ZeroPage),
+        OpCode::new(0x38, "SEC", 1, 2, AddressingMode::ZeroPage_X),
+
+        OpCode::new(0x58, "CLI", 1, 2, AddressingMode::Absolute),
+        OpCode::new(0x78, "SEI", 1, 2, AddressingMode::Absolute_X),
+
+        OpCode::new(0xb8, "CLV", 1, 2, AddressingMode::ZeroPage),
+        OpCode::new(0xd8, "CLD", 1, 2, AddressingMode::ZeroPage_X), // UNUSED FOR NES
+        OpCode::new(0xf8, "SED", 1, 2, AddressingMode::Absolute), // UNUSED FOR NES
+
+        /* JMP */
+        OpCode::new(0x4c, "JMP", 1, 2, AddressingMode::Absolute),
+        OpCode::new(0x6c, "JMP", 1, 2, AddressingMode::NoneAddressing),
+
+        /* JSR */
+
+
+        /* RTS */
+
     ];
 
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {

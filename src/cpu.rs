@@ -383,6 +383,27 @@ impl CPU {
         self.update_zero_and_negative_flags(compare_with.wrapping_sub(data));
     }
 
+    fn jmp_absolute(&mut self) {
+        let addr = self.mem_read_u16(self.program_counter); // get next 16 bytes from code
+        self.program_counter = addr;
+    }
+
+    fn jmp_indirect(&mut self) {
+        let mem_address = self.mem_read_u16(self.program_counter);
+
+        // I think this allows indirect ref to read memory across page boundaries
+        // ngl I cheated and copied this bit
+        let indirect_ref = if mem_address & 0x00FF == 0x00FF {
+            let lo = self.mem_read(mem_address);
+            let hi = self.mem_read(mem_address & 0xFF00);
+            (hi as u16) << 8 | (lo as u16)
+        } else {
+            self.mem_read_u16(mem_address)
+        };
+
+        self.program_counter = indirect_ref;
+    }
+
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
@@ -520,6 +541,16 @@ impl CPU {
                 0xc6 | 0xd6 | 0xce | 0xde => {
                     self.dec(&opcode.mode);
                 }
+
+                0x18 => self.clear_carry_flag(), // CLC
+                0x38 => self.set_carry_flag(), // SEC
+                0x58 => self.status.remove(CpuFlags::INTERRUPT_DISABLE), // CLI
+                0x78 => self.status.insert(CpuFlags::INTERRUPT_DISABLE), // SEI
+                0xb8 => self.status.remove(CpuFlags::OVERFLOW), // CLV
+
+                0x4c => self.jmp_absolute(), // JMP abs
+                0x6c => self.jmp_indirect(), // JMP indirect
+
                 0x00 => return,
                 _ => todo!(),
             }
@@ -533,7 +564,6 @@ impl CPU {
 
 #[cfg(test)]
 mod test {
-    use bitflags::BitFlags;
 
     use super::*;
 
