@@ -305,6 +305,22 @@ impl CPU {
         self.mem_write(addr, self.register_y);
     }
 
+    fn inc(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let mut value = self.mem_read(addr);
+        value = value.wrapping_add(1);
+        self.mem_write(addr, value);
+        self.update_zero_and_negative_flags(value);
+    }
+
+    fn dec(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let mut value = self.mem_read(addr);
+        value = value.wrapping_sub(1);
+        self.mem_write(addr, value);
+        self.update_zero_and_negative_flags(value);
+    }
+
     fn asl_accumulator(&mut self) {
         let data = self.register_a;
         if data >> 7 == 1 {
@@ -495,6 +511,14 @@ impl CPU {
                 /* CPY */
                 0xc0 | 0xc4 | 0xcc => {
                     self.compare(&opcode.mode, self.register_y);
+                }
+                /* INC */
+                0xe6 | 0xf6 | 0xee | 0xfe => {
+                    self.inc(&opcode.mode);
+                }
+                /* DEC */
+                0xc6 | 0xd6 | 0xce | 0xde => {
+                    self.dec(&opcode.mode);
                 }
                 0x00 => return,
                 _ => todo!(),
@@ -862,6 +886,15 @@ mod test {
     }
 
     #[test]
+    fn test_cmp_immediate_eq_neg() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x10, 0xc9, 0x11]);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0000); // carry
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b1000_0000); // negative
+    }
+
+    #[test]
     fn test_cpx_immediate_eq() {
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xa2, 0x10, 0xe0, 0x10]);
@@ -895,6 +928,60 @@ mod test {
         assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
         assert!(cpu.status.bits() & 0b0000_0001 == 0b0000_0001); // carry
         assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    /* INC */
+    #[test]
+    fn test_inc_pos() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0x01);
+        cpu.load(vec![0xe6, 0x10]); 
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.mem_read(0x10), 0x02);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_inc_neg() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0xc1);
+        cpu.load(vec![0xe6, 0x10]); 
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.mem_read(0x10), 0xc2);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b1000_0000); // negative
+    }
+
+    /* DEC */
+    #[test]
+    fn test_dec_pos() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0x01);
+        cpu.load(vec![0xc6, 0x10]); 
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.mem_read(0x10), 0x00);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0010); // zero
+        assert!(cpu.status.bits() & 0b0000_0000 == 0b0000_0000); // negative
+    }
+
+    #[test]
+    fn test_dec_neg() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0x00);
+        cpu.load(vec![0xc6, 0x10]); 
+        cpu.program_counter = cpu.mem_read_u16(0xFFFC);
+        cpu.run();
+
+        assert_eq!(cpu.mem_read(0x10), 0xff);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000); // zero
+        assert!(cpu.status.bits() & 0b1000_0000 == 0b1000_0000); // negative
     }
 
 
