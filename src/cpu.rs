@@ -560,7 +560,7 @@ impl CPU {
         hi << 8 | lo
     }
 
-    fn stack_push_u16(&mut self, data: u8) {
+    fn stack_push_u16(&mut self, data: u16) {
         let hi = (data >> 8) as u8;
         let lo = (data & 0xff) as u8;
         self.stack_push(hi);
@@ -588,9 +588,15 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
+        self.run_with_callback(|_| {});
+    }
+
+    pub fn run_with_callback<F>(&mut self, mut callback: F) where F: FnMut(&mut CPU) {
         let ref opcodes: HashMap<u8, &'static OpCode> = *OPCODES_MAP;
 
         loop {
+            callback(self);
+
             let code: u8 = self.mem_read(self.program_counter);
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
