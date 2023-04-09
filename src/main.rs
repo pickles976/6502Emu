@@ -138,8 +138,6 @@ fn main() {
             canvas.present();
         }
 
-        // ::std::thread::sleep(Duration::new(0, 0));
-        // spin_sleeper.sleep_s(0.016);
         spin_sleeper.sleep_ns(50_000);
     });
 
