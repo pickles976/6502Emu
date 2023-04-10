@@ -46,7 +46,7 @@ impl Mem for Bus {
                 todo!("PPU is not supported yet!")
             }
             _ => {
-                println!("Ignoring mem write access at {}", addr);
+                println!("Ignoring mem write access of bytes {} at {}", data, addr);
             }
         }
     }
