@@ -3,11 +3,13 @@ pub mod opcodes;
 pub mod bus; 
 pub mod mem;
 pub mod rom;
+pub mod trace;
 
-use cpu::CPU;
+use nes_emulator::cpu::CPU;
 use nes_emulator::mem::Mem;
 use nes_emulator::rom::Rom;
 use nes_emulator::bus::Bus;
+use nes_emulator::trace::trace;
 
 use rand::Rng;
 use sdl2::event::Event;
@@ -137,6 +139,9 @@ fn main() {
 
     // run the game cycle
     cpu.run_with_callback(move |cpu| {
+
+        println!("{}", trace(cpu));
+
         handle_user_input(cpu, &mut event_pump);
 
         cpu.mem_write(0xfe, rng.gen_range(1..16));
