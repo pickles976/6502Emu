@@ -2,9 +2,12 @@ pub mod cpu;
 pub mod opcodes;
 pub mod bus; 
 pub mod mem;
+pub mod rom;
 
 use cpu::CPU;
 use nes_emulator::mem::Mem;
+use nes_emulator::rom::Rom;
+use nes_emulator::bus::Bus;
 
 use rand::Rng;
 use sdl2::event::Event;
@@ -123,8 +126,10 @@ fn main() {
 
 
     //load the game
-    let mut cpu = CPU::new();
-    cpu.load(game_code);
+    let bytes: Vec<u8> = std::fs::read("snake.nes").unwrap();
+    let rom = Rom::new(&bytes).unwrap();
+    let bus = Bus::new(rom);
+    let mut cpu = CPU::new(bus);
     cpu.reset();
 
     let mut screen_state = [0 as u8; 32 * 3 * 32];
