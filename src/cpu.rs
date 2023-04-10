@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 use nes_emulator::opcodes::{AddressingMode, OpCode, OPCODES_MAP};
 use std::collections::HashMap;
+use nes_emulator::mem::Mem;
 
 bitflags! {
     /// # Status Register (P) http://wiki.nesdev.com/w/index.php/Status_flags
@@ -38,25 +39,6 @@ pub struct CPU {
     pub program_counter: u16,
     pub stack_ptr: u8,
     memory: [u8; 0xFFFF],
-}
-
-pub trait Mem {
-    fn mem_read(&self, addr: u16) -> u8;
-
-    fn mem_write(&mut self, addr: u16, data: u8);
-
-    fn mem_read_u16(&mut self, pos: u16) -> u16 {
-        let lo = self.mem_read(pos) as u16;
-        let hi = self.mem_read(pos + 1) as u16;
-        (hi << 8) | (lo as u16)
-    }
-
-    fn mem_write_u16(&mut self, pos: u16, data: u16) {
-        let hi = (data >> 8) as u8;
-        let lo = (data & 0xff) as u8;
-        self.mem_write(pos, lo);
-        self.mem_write(pos + 1, hi);
-    }
 }
 
 impl Mem for CPU {
@@ -809,6 +791,7 @@ impl CPU {
 mod test {
 
     use super::*;
+    use nes_emulator::mem::Mem;
 
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
@@ -1035,7 +1018,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1046,7 +1029,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1058,7 +1041,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1069,7 +1052,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1081,7 +1064,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1092,7 +1075,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1104,7 +1087,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]
@@ -1115,7 +1098,7 @@ mod test {
         cpu.program_counter = cpu.mem_read_u16(0xFFFC);
         cpu.run();
 
-        assert_eq!(cpu.program_counter, 0x8013);
+        assert_eq!(cpu.program_counter, 0x0613);
     }
 
     #[test]

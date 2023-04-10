@@ -1,7 +1,11 @@
 pub mod cpu;
 pub mod opcodes;
-use cpu::Mem;
+pub mod bus; 
+pub mod mem;
+
 use cpu::CPU;
+use nes_emulator::mem::Mem;
+
 use rand::Rng;
 use sdl2::event::Event;
 use sdl2::EventPump;
